@@ -122,7 +122,7 @@
                 r.push(cur.trim());
                 r.push(index);
                 return r;
-            }).filter(a => a.length >= 10); // 至少有10列即可，主要字段在前面
+            }).filter(a => a.length >= 10); // 至少10列即可，主要字段在前面
             initFilters();
             updateL2();
         } catch (e) {
@@ -131,26 +131,26 @@
     }
 
     /**
-     * 列索引说明（0-based）：
-     * 0: 标题
-     * 1: 规格
-     * 2: 价格
-     * 3: 主图 (imgUrl)
-     * 4: 第二张图 (imgUrl2)   ← 新增于第五列
-     * 5: 商品链接
-     * 6: 一级类目
-     * 7: 二级类目
-     * 8: 三级类目
-     * 9: 四级类目
-     * 10: 邀请ID
-     * 11: 型号ID
-     * 12: 1688链接
-     * 13: 评判等级 (P0/P1)
-     * 14: 日期
-     * 15: (可能为空列，跳过)
-     * 16: (可能为空列，跳过)
-     * 17: 特殊标签
-     * 18: 款式数
+     * 列索引说明（基于提供的CSV标题）：
+     * 0: title
+     * 1: variant
+     * 2: price
+     * 3: imgUrl (主图)
+     * 4: imgUrl2 (第二张图)
+     * 5: link
+     * 6: l1 (一级类目)
+     * 7: l2 (二级类目)
+     * 8: l3 (三级类目)
+     * 9: l4 (四级类目)
+     * 10: inviteId
+     * 11: modelId
+     * 12: final_1688_link (核价链接)
+     * 13: price judge (P0/P1)
+     * 14: update date
+     * 15: itemid (未使用)
+     * 16: 最大价格 (未使用)
+     * 17: tag (特殊标签)
+     * 18: 共有model数 (款式数)
      */
     const mapData = (arr) => {
         return {
