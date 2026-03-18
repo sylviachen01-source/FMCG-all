@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>热销原品清单 · 三级类目联动</title>
+    <title>FMCG热销品清单</title>
     <style>
         body { font-family: 'PingFang SC', sans-serif; background: #f4f4f7; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -34,11 +34,10 @@
 <body>
 <div class="container">
     <header>
-        <h1>热销原品清单 · 三级类目联动</h1>
+        <h1>FMCG热销品清单</h1>
         <div class="desc-box">
 🔥优先选P0：P0 级产品价格更优<br>
 💰高效提报：单击红框 ID 快速复制，搜索该 ID 报满所有型号流量翻倍！<br>
-📂新增三级类目筛选：选择一级/二级后自动联动三级。<br>
 💹价格有问题： 点击左上角P0查看核价链接，联系买手申诉。
         </div>
     </header>
@@ -46,8 +45,9 @@
         <input type="text" id="searchInput" placeholder="搜索标题/ID..." oninput="debouncedFilter()">
         <select id="l1Filter" onchange="handleL1Change()"><option value="">一级类目(全部)</option></select>
         <select id="l2Filter" onchange="handleL2Change()"><option value="">二级类目(全部)</option></select>
-        <!-- 新增三级类目下拉框 -->
-        <select id="l3Filter" onchange="applyFilters()"><option value="">三级类目(全部)</option></select>
+        <select id="l3Filter" onchange="handleL3Change()"><option value="">三级类目(全部)</option></select>
+        <!-- 新增四级下拉框 -->
+        <select id="l4Filter" onchange="applyFilters()"><option value="">四级类目(全部)</option></select>
         <select id="pFilter" onchange="applyFilters()"><option value="">P0/P1(全部)</option><option value="P0">P0</option><option value="P1">P1</option></select>
         <select id="tagFilter" onchange="applyFilters()"><option value="">特殊标签(全部)</option></select>
         <input type="number" id="minPrice" placeholder="最低价" oninput="debouncedFilter()">
@@ -65,7 +65,7 @@
 <div id="imageModal" onclick="this.style.display='none'"><img id="modalImg" src=""></div>
 
 <script>
-    // 禁止右键和开发者工具（简易防护）
+    // 禁止右键和开发者工具
     document.oncontextmenu = () => false;
     document.onkeydown = (e) => {
         if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && e.keyCode === 73) || (e.ctrlKey && e.keyCode === 85)) {
@@ -100,17 +100,17 @@
                 r.push(cur.trim());
                 r.push(index); // 保留原始行号，便于去重（如果有）
                 return r;
-            }).filter(a => a.length >= 13); // 至少要有13列（因为新增了l3，原最少12列现在13）
+            }).filter(a => a.length >= 14); // 至少要有14列（l4加入后，原13列→14列）
 
             initFilters();
-            // 初始化联动：根据当前一级（空）填充二级，再根据二级填充三级
+            // 初始化联动：根据当前一级（空）填充二级，再逐级填充三级、四级
             updateL2();
         } catch (e) {
             console.error('数据加载失败', e);
         }
     }
 
-    // 将一行数组映射为对象 (列索引已按照【第八列插入l3】整体右移)
+    // 将一行数组映射为对象 (列索引已按照【第八列l3，第九列l4】整体右移)
     const mapData = (arr) => {
         return {
             title: arr[0],
@@ -120,15 +120,16 @@
             link: arr[4],
             l1: arr[5],
             l2: arr[6],
-            l3: arr[7],                     // 新增三级类目，原第八列
-            inviteId: cleanId(arr[8]),       // 原第七列 → 第九列
-            modelId: cleanId(arr[9]),        // 原第八列 → 第十列
-            link1688: arr[10],                // 原第九列 → 第十一列
-            judge: arr[11],                   // 原第十列 → 第十二列
-            date: arr[12],                    // 原第十一列 → 第十三列
-            // arr[13], arr[14] 可能为空或未使用，跳过
-            specialTag: arr[15] || "",        // 原第十四列 → 第十六列
-            modelCount: arr[16] || "1"         // 原第十五列 → 第十七列
+            l3: arr[7],                     // 三级类目（原第八列）
+            l4: arr[8],                      // 四级类目（新增第九列）
+            inviteId: cleanId(arr[9]),        // 原第七列 → 第十列
+            modelId: cleanId(arr[10]),        // 原第八列 → 第十一列
+            link1688: arr[11],                 // 原第九列 → 第十二列
+            judge: arr[12],                    // 原第十列 → 第十三列
+            date: arr[13],                     // 原第十一列 → 第十四列
+            // arr[14], arr[15] 可能为空或未使用，跳过
+            specialTag: arr[16] || "",          // 原第十四列 → 第十七列
+            modelCount: arr[17] || "1"          // 原第十五列 → 第十八列
         };
     };
 
@@ -198,7 +199,8 @@
         const q = document.getElementById('searchInput').value.toLowerCase();
         const l1 = document.getElementById('l1Filter').value;
         const l2 = document.getElementById('l2Filter').value;
-        const l3 = document.getElementById('l3Filter').value;      // 新增三级
+        const l3 = document.getElementById('l3Filter').value;
+        const l4 = document.getElementById('l4Filter').value;      // 四级
         const p = document.getElementById('pFilter').value;
         const tag = document.getElementById('tagFilter').value;
         const min = parseFloat(document.getElementById('minPrice').value) || 0;
@@ -209,11 +211,12 @@
             const matchSearch = i.title.toLowerCase().includes(q) || i.inviteId.toLowerCase().includes(q);
             const matchL1 = !l1 || i.l1 === l1;
             const matchL2 = !l2 || i.l2 === l2;
-            const matchL3 = !l3 || i.l3 === l3;                   // 三级条件
+            const matchL3 = !l3 || i.l3 === l3;
+            const matchL4 = !l4 || i.l4 === l4;                   // 四级条件
             const matchP = !p || i.judge === p;
             const matchTag = !tag || i.specialTag === tag;
             const matchPrice = i.price >= min && i.price <= max;
-            return matchSearch && matchL1 && matchL2 && matchL3 && matchP && matchTag && matchPrice;
+            return matchSearch && matchL1 && matchL2 && matchL3 && matchL4 && matchP && matchTag && matchPrice;
         });
 
         const sort = document.getElementById('sortOrder').value;
@@ -226,40 +229,39 @@
 
     // 初始化一级类目、特殊标签下拉框
     function initFilters() {
+        // 一级类目 (索引5)
         const l1Set = new Set(products.map(p => p[5]).filter(v => v));
         const l1Select = document.getElementById('l1Filter');
         l1Select.innerHTML = '<option value="">一级类目(全部)</option>' + 
             [...l1Set].sort().map(v => `<option value="${v}">${v}</option>`).join('');
 
-        // 特殊标签 (原索引14 -> 新索引15)
-        const tagSet = new Set(products.map(p => p[15]?.trim()).filter(v => v));
+        // 特殊标签 (原索引14 -> 由于l3、l4插入，现在索引16)
+        const tagSet = new Set(products.map(p => p[16]?.trim()).filter(v => v));
         const tagSelect = document.getElementById('tagFilter');
         tagSelect.innerHTML = '<option value="">特殊标签(全部)</option>' + 
             [...tagSet].sort().map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
-    // 根据一级类目更新二级类目 (原索引6不变)
+    // 根据一级类目更新二级类目 (索引6)
     function updateL2() {
         const l1 = document.getElementById('l1Filter').value;
         const l2Set = new Set(products.filter(p => !l1 || p[5] === l1).map(p => p[6]).filter(v => v));
         const l2Select = document.getElementById('l2Filter');
         l2Select.innerHTML = '<option value="">二级类目(全部)</option>' + 
             [...l2Set].sort().map(v => `<option value="${v}">${v}</option>`).join('');
-        // 清空二级选中值（联动习惯）
-        l2Select.value = '';
+        l2Select.value = ''; // 清空二级选中
 
-        // 二级变化后必须更新三级
+        // 二级变化后更新三级、四级
         updateL3();
     }
 
-    // 根据一级和二级更新三级类目 (新增索引7)
+    // 根据一级、二级更新三级类目 (索引7)
     function updateL3() {
         const l1 = document.getElementById('l1Filter').value;
         const l2 = document.getElementById('l2Filter').value;
         const l3Select = document.getElementById('l3Filter');
-        const oldL3 = l3Select.value; // 之前选中的三级
+        const oldL3 = l3Select.value;
 
-        // 收集符合条件的l3（索引7）
         const l3Set = new Set();
         products.forEach(p => {
             if ((!l1 || p[5] === l1) && (!l2 || p[6] === l2)) {
@@ -277,17 +279,52 @@
         } else {
             l3Select.value = '';
         }
+
+        // 三级变化后更新四级
+        updateL4();
     }
 
-    // 处理一级变化：联动二级，再联动三级，然后筛选
+    // 根据一级、二级、三级更新四级类目 (索引8)
+    function updateL4() {
+        const l1 = document.getElementById('l1Filter').value;
+        const l2 = document.getElementById('l2Filter').value;
+        const l3 = document.getElementById('l3Filter').value;
+        const l4Select = document.getElementById('l4Filter');
+        const oldL4 = l4Select.value;
+
+        const l4Set = new Set();
+        products.forEach(p => {
+            if ((!l1 || p[5] === l1) && (!l2 || p[6] === l2) && (!l3 || p[7] === l3)) {
+                const val = p[8];
+                if (val && val.trim()) l4Set.add(val.trim());
+            }
+        });
+        const sorted = [...l4Set].sort();
+        l4Select.innerHTML = '<option value="">四级类目(全部)</option>' + 
+            sorted.map(v => `<option value="${v}">${v}</option>`).join('');
+
+        if (sorted.includes(oldL4)) {
+            l4Select.value = oldL4;
+        } else {
+            l4Select.value = '';
+        }
+    }
+
+    // 处理一级变化：联动二级→三级→四级，然后筛选
     function handleL1Change() {
-        updateL2();        // updateL2 内部会调用 updateL3
+        updateL2();        // updateL2 内部会调用 updateL3 和 updateL4
         applyFilters();
     }
 
-    // 处理二级变化：联动三级，然后筛选
+    // 处理二级变化：联动三级→四级，然后筛选
     function handleL2Change() {
-        updateL3();
+        updateL3();        // updateL3 内部会调用 updateL4
+        applyFilters();
+    }
+
+    // 处理三级变化：联动四级，然后筛选
+    function handleL3Change() {
+        updateL4();
         applyFilters();
     }
 
@@ -310,7 +347,7 @@
     letter-spacing: 0.5px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 ">
-    <div style="margin-bottom: 4px;">Designed by Ethan Cai · 三级联动版</div>
+    <div style="margin-bottom: 4px;">Designed by Ethan Cai · 四级联动版</div>
     <div style="opacity: 0.8;">ethan.cai02@shopee.com</div>
 </footer>
 
