@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>热销原品清单</title>
+    <title>热销原品清单 · 三级类目联动</title>
     <style>
         body { font-family: 'PingFang SC', sans-serif; background: #f4f4f7; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -34,17 +34,20 @@
 <body>
 <div class="container">
     <header>
-        <h1>化妆品热销原品清单</h1>
+        <h1>热销原品清单 · 三级类目联动</h1>
         <div class="desc-box">
-🔥优先选P0：P0 级产品价格更优
-💰高效提报：单击红框 ID 快速复制，搜索该 ID 报满所有型号流量翻倍！
-💹价格有问题： 点击左上角P0查看核价链接，联系买手申诉。</div>
+🔥优先选P0：P0 级产品价格更优<br>
+💰高效提报：单击红框 ID 快速复制，搜索该 ID 报满所有型号流量翻倍！<br>
+📂新增三级类目筛选：选择一级/二级后自动联动三级。<br>
+💹价格有问题： 点击左上角P0查看核价链接，联系买手申诉。
+        </div>
     </header>
     <div class="filter-section">
         <input type="text" id="searchInput" placeholder="搜索标题/ID..." oninput="debouncedFilter()">
-        <select id="l1Filter" onchange="updateL2(); applyFilters()"><option value="">一级类目(全部)</option></select>
-        <select id="l2Filter" onchange="applyFilters()"><option value="">二级类目(全部)</option></select>
-         <select id="l3Filter" onchange="applyFilters()"><option value="">三级类目(全部)</option></select>
+        <select id="l1Filter" onchange="handleL1Change()"><option value="">一级类目(全部)</option></select>
+        <select id="l2Filter" onchange="handleL2Change()"><option value="">二级类目(全部)</option></select>
+        <!-- 新增三级类目下拉框 -->
+        <select id="l3Filter" onchange="applyFilters()"><option value="">三级类目(全部)</option></select>
         <select id="pFilter" onchange="applyFilters()"><option value="">P0/P1(全部)</option><option value="P0">P0</option><option value="P1">P1</option></select>
         <select id="tagFilter" onchange="applyFilters()"><option value="">特殊标签(全部)</option></select>
         <input type="number" id="minPrice" placeholder="最低价" oninput="debouncedFilter()">
@@ -62,72 +65,82 @@
 <div id="imageModal" onclick="this.style.display='none'"><img id="modalImg" src=""></div>
 
 <script>
+    // 禁止右键和开发者工具（简易防护）
     document.oncontextmenu = () => false;
     document.onkeydown = (e) => {
         if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && e.keyCode === 73) || (e.ctrlKey && e.keyCode === 85)) {
             return false;
         }
     };
-
-    console.log("%c⚠️ 发现非法查看源码行为", "color: red; font-size: 20px; font-weight: bold;");
+    console.log("%c⚠️ 设计保护", "color: red; font-size: 16px;");
     console.log("Designed by Ethan Cai. 复制前请联系原作者。");
+
     let products = [], filteredData = [], currentPage = 1;
     const pageSize = 40;
-    // 修改 cleanId 函数，确保能处理掉各种前导字符
-const cleanId = (str) => {
-    if (!str) return "";
-    // 移除开头所有的 ' 或 +，同时去掉所有双引号和前后空格
-    return str.toString().replace(/^['+]+/, '').replace(/["=\t]/g, '').trim();
-};
 
+    // 清洗ID：移除前导引号、加号等
+    const cleanId = (str) => {
+        if (!str) return "";
+        return str.toString().replace(/^['+]+/, '').replace(/["=\t]/g, '').trim();
+    };
+
+    // 加载CSV数据
     async function loadData() {
         try {
             const res = await fetch('data.csv');
             const text = await res.text();
             products = text.split(/\r?\n/).slice(1).map((line, index) => {
+                // 简单CSV解析（支持引号内逗号）
                 let r = [], cur = '', q = false;
-                for (let c of line) { if (c === '"') q = !q; else if (c === ',' && !q) { r.push(cur.trim()); cur = ''; } else cur += c; }
-                r.push(cur.trim()); r.push(index);
+                for (let c of line) {
+                    if (c === '"') q = !q;
+                    else if (c === ',' && !q) { r.push(cur.trim()); cur = ''; }
+                    else cur += c;
+                }
+                r.push(cur.trim());
+                r.push(index); // 保留原始行号，便于去重（如果有）
                 return r;
-            }).filter(a => a.length >= 12);
-            initFilters(); applyFilters();
-        } catch (e) { console.error(e); }
-    }
+            }).filter(a => a.length >= 13); // 至少要有13列（因为新增了l3，原最少12列现在13）
 
-// 【修复 1688 链接解析】提取纯链接
-    function checkLink(rawUrl) {
-        if (!rawUrl) { alert('❌ 无核价链接'); return; }
-        // 匹配字符串中出现的第一个 http... 链接
-        const match = rawUrl.match(/https?:\/\/[^\s]+/);
-        if (match) {
-            window.open(match[0], '_blank');
-        } else {
-            alert('❌ 链接格式无法识别');
+            initFilters();
+            // 初始化联动：根据当前一级（空）填充二级，再根据二级填充三级
+            updateL2();
+        } catch (e) {
+            console.error('数据加载失败', e);
         }
     }
 
-  // 修改 mapData 函数
-const mapData = (arr) => {
-    return {
-        title: arr[0],
-        variant: arr[1],
-        price: parseFloat(arr[2]) || 0,
-        imgUrl: arr[3],
-        link: arr[4],
-        l1: arr[5],
-        l2: arr[6],
-        l3: arr[7],
-        inviteId: cleanId(arr[8]),
-        // 关键点：使用 cleanId 处理，强制转为字符串且去除干扰符
-        modelId: cleanId(arr[9]), 
-        link1688: arr[10],
-        judge: arr[11],
-        date: arr[12],
-        specialTag: arr[13] || "",
-        modelCount: arr[14] || "1"
+    // 将一行数组映射为对象 (列索引已按照【第八列插入l3】整体右移)
+    const mapData = (arr) => {
+        return {
+            title: arr[0],
+            variant: arr[1],
+            price: parseFloat(arr[2]) || 0,
+            imgUrl: arr[3],
+            link: arr[4],
+            l1: arr[5],
+            l2: arr[6],
+            l3: arr[7],                     // 新增三级类目，原第八列
+            inviteId: cleanId(arr[8]),       // 原第七列 → 第九列
+            modelId: cleanId(arr[9]),        // 原第八列 → 第十列
+            link1688: arr[10],                // 原第九列 → 第十一列
+            judge: arr[11],                   // 原第十列 → 第十二列
+            date: arr[12],                    // 原第十一列 → 第十三列
+            // arr[13], arr[14] 可能为空或未使用，跳过
+            specialTag: arr[15] || "",        // 原第十四列 → 第十六列
+            modelCount: arr[16] || "1"         // 原第十五列 → 第十七列
+        };
     };
-};
 
+    // 打开核价链接（提取字符串中第一个http链接）
+    function checkLink(rawUrl) {
+        if (!rawUrl) { alert('❌ 无核价链接'); return; }
+        const match = rawUrl.match(/https?:\/\/[^\s]+/);
+        if (match) window.open(match[0], '_blank');
+        else alert('❌ 链接格式无法识别');
+    }
+
+    // 渲染商品卡片
     function render(dataList, page = 1) {
         currentPage = page;
         const grid = document.getElementById('productGrid');
@@ -136,28 +149,28 @@ const mapData = (arr) => {
             const item = mapData(arr);
             const card = document.createElement('div');
             card.className = 'card';
-card.innerHTML = `
-    <div class="judge-tag ${item.judge === 'P0' ? 'bg-p0' : 'bg-p1'}" onclick="checkLink('${item.link1688}')">${item.judge}</div>
-    ${item.specialTag ? `<div class="special-tag">${item.specialTag}</div>` : ''}
-    <div class="img-container" ondblclick="document.getElementById('modalImg').src='${item.imgUrl}'; document.getElementById('imageModal').style.display='flex';">
-        <img src="${item.imgUrl}" loading="lazy">
-    </div>
-    <div class="info">
-        <div class="title" title="${item.title}">${item.title}</div>
-        <div class="price-variant-row">
-            <span class="price">¥${item.price}</span>
-            <span class="variant" title="${item.variant}">${item.variant}</span>
-        </div>
-        <div class="invite-row">
-            <div class="model-count-tag">${item.modelCount}款</div>
-            <div class="invite-id-box" onclick="navigator.clipboard.writeText('${item.inviteId}'); alert('已复制ID: ${item.inviteId}')">${item.inviteId}</div>
-        </div>
-        <div class="footer-row">
-            <span>${item.date}</span>
-            <span style="font-weight:bold; color:#555;">${item.modelId}</span>
-            <a href="${item.link}" target="_blank" class="btn-link">原品 >>></a>
-        </div>
-    </div>`;
+            card.innerHTML = `
+                <div class="judge-tag ${item.judge === 'P0' ? 'bg-p0' : 'bg-p1'}" onclick="checkLink('${item.link1688}')">${item.judge}</div>
+                ${item.specialTag ? `<div class="special-tag">${item.specialTag}</div>` : ''}
+                <div class="img-container" ondblclick="document.getElementById('modalImg').src='${item.imgUrl}'; document.getElementById('imageModal').style.display='flex';">
+                    <img src="${item.imgUrl}" loading="lazy">
+                </div>
+                <div class="info">
+                    <div class="title" title="${item.title}">${item.title}</div>
+                    <div class="price-variant-row">
+                        <span class="price">¥${item.price}</span>
+                        <span class="variant" title="${item.variant}">${item.variant}</span>
+                    </div>
+                    <div class="invite-row">
+                        <div class="model-count-tag">${item.modelCount}款</div>
+                        <div class="invite-id-box" onclick="navigator.clipboard.writeText('${item.inviteId}'); alert('已复制ID: ${item.inviteId}')">${item.inviteId}</div>
+                    </div>
+                    <div class="footer-row">
+                        <span>${item.date}</span>
+                        <span style="font-weight:bold; color:#555;">${item.modelId}</span>
+                        <a href="${item.link}" target="_blank" class="btn-link">原品 >>></a>
+                    </div>
+                </div>`;
             grid.appendChild(card);
         });
         renderPagination(dataList.length);
@@ -180,40 +193,114 @@ card.innerHTML = `
         if(p > 0 && p <= Math.ceil(filteredData.length/pageSize)) render(filteredData, p);
     }
 
+    // 核心筛选 + 排序
     function applyFilters() {
         const q = document.getElementById('searchInput').value.toLowerCase();
-        const l1 = document.getElementById('l1Filter').value, l2 = document.getElementById('l2Filter').value, l3 = document.getElementById('l3Filter').value;
-        const p = document.getElementById('pFilter').value, tag = document.getElementById('tagFilter').value;
-        const min = parseFloat(document.getElementById('minPrice').value) || 0, max = parseFloat(document.getElementById('maxPrice').value) || Infinity;
-        
+        const l1 = document.getElementById('l1Filter').value;
+        const l2 = document.getElementById('l2Filter').value;
+        const l3 = document.getElementById('l3Filter').value;      // 新增三级
+        const p = document.getElementById('pFilter').value;
+        const tag = document.getElementById('tagFilter').value;
+        const min = parseFloat(document.getElementById('minPrice').value) || 0;
+        const max = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+
         filteredData = products.filter(arr => {
             const i = mapData(arr);
-            return (i.title.toLowerCase().includes(q) || i.inviteId.toLowerCase().includes(q)) &&
-                   (!l1 || i.l1 === l1) && (!l2 || i.l2 === l2)&& (!l3 || i.l3 === l3)&& (!p || i.judge === p) && 
-                   (!tag || i.specialTag === tag) && (i.price >= min && i.price <= max);
+            const matchSearch = i.title.toLowerCase().includes(q) || i.inviteId.toLowerCase().includes(q);
+            const matchL1 = !l1 || i.l1 === l1;
+            const matchL2 = !l2 || i.l2 === l2;
+            const matchL3 = !l3 || i.l3 === l3;                   // 三级条件
+            const matchP = !p || i.judge === p;
+            const matchTag = !tag || i.specialTag === tag;
+            const matchPrice = i.price >= min && i.price <= max;
+            return matchSearch && matchL1 && matchL2 && matchL3 && matchP && matchTag && matchPrice;
         });
-        
+
         const sort = document.getElementById('sortOrder').value;
         if (sort === 'priceAsc') filteredData.sort((a,b) => a[2] - b[2]);
         else if (sort === 'priceDesc') filteredData.sort((a,b) => b[2] - a[2]);
-        
+
         document.getElementById('countDisplay').innerText = `已筛选：${filteredData.length} 款`;
         render(filteredData, 1);
     }
 
+    // 初始化一级类目、特殊标签下拉框
     function initFilters() {
-        [...new Set(products.map(p => p[5]))].forEach(v => { if(v) document.getElementById('l1Filter').innerHTML += `<option value="${v}">${v}</option>`; });
-        [...new Set(products.map(p => p[14]?.trim()).filter(v => v))].forEach(v => { document.getElementById('tagFilter').innerHTML += `<option value="${v}">${v}</option>`; });
+        const l1Set = new Set(products.map(p => p[5]).filter(v => v));
+        const l1Select = document.getElementById('l1Filter');
+        l1Select.innerHTML = '<option value="">一级类目(全部)</option>' + 
+            [...l1Set].sort().map(v => `<option value="${v}">${v}</option>`).join('');
+
+        // 特殊标签 (原索引14 -> 新索引15)
+        const tagSet = new Set(products.map(p => p[15]?.trim()).filter(v => v));
+        const tagSelect = document.getElementById('tagFilter');
+        tagSelect.innerHTML = '<option value="">特殊标签(全部)</option>' + 
+            [...tagSet].sort().map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
-    function updateL2() { const l1 = document.getElementById('l1Filter').value; const s = document.getElementById('l2Filter'); s.innerHTML = '<option value="">二级类目(全部)</option>'; [...new Set(products.filter(p => !l1 || p[5] === l1).map(p => p[6]))].forEach(v => { if(v) s.innerHTML += `<option value="${v}">${v}</option>`; }); }
-    let timer; const debouncedFilter = () => { clearTimeout(timer); timer = setTimeout(applyFilters, 300); const l3Select = document.getElementById('l3Filter');
-    l3Select.innerHTML = '<option value="">三级类目(全部)</option>';
-};
+    // 根据一级类目更新二级类目 (原索引6不变)
+    function updateL2() {
+        const l1 = document.getElementById('l1Filter').value;
+        const l2Set = new Set(products.filter(p => !l1 || p[5] === l1).map(p => p[6]).filter(v => v));
+        const l2Select = document.getElementById('l2Filter');
+        l2Select.innerHTML = '<option value="">二级类目(全部)</option>' + 
+            [...l2Set].sort().map(v => `<option value="${v}">${v}</option>`).join('');
+        // 清空二级选中值（联动习惯）
+        l2Select.value = '';
+
+        // 二级变化后必须更新三级
+        updateL3();
+    }
+
+    // 根据一级和二级更新三级类目 (新增索引7)
+    function updateL3() {
+        const l1 = document.getElementById('l1Filter').value;
+        const l2 = document.getElementById('l2Filter').value;
+        const l3Select = document.getElementById('l3Filter');
+        const oldL3 = l3Select.value; // 之前选中的三级
+
+        // 收集符合条件的l3（索引7）
+        const l3Set = new Set();
+        products.forEach(p => {
+            if ((!l1 || p[5] === l1) && (!l2 || p[6] === l2)) {
+                const val = p[7];
+                if (val && val.trim()) l3Set.add(val.trim());
+            }
+        });
+        const sorted = [...l3Set].sort();
+        l3Select.innerHTML = '<option value="">三级类目(全部)</option>' + 
+            sorted.map(v => `<option value="${v}">${v}</option>`).join('');
+
+        // 恢复之前选中值（如果还在新列表内）
+        if (sorted.includes(oldL3)) {
+            l3Select.value = oldL3;
+        } else {
+            l3Select.value = '';
+        }
+    }
+
+    // 处理一级变化：联动二级，再联动三级，然后筛选
+    function handleL1Change() {
+        updateL2();        // updateL2 内部会调用 updateL3
+        applyFilters();
+    }
+
+    // 处理二级变化：联动三级，然后筛选
+    function handleL2Change() {
+        updateL3();
+        applyFilters();
+    }
+
+    // 防抖筛选
+    let timer;
+    function debouncedFilter() {
+        clearTimeout(timer);
+        timer = setTimeout(applyFilters, 300);
+    }
+
     window.onload = loadData;
-    // Data-Powered Template | Author: Ethan Cai (ethan.cai02@shopee.com)
-// 内部使用，严禁对外转载
 </script>
+
 <footer style="
     text-align: center; 
     color: #86868b; 
@@ -223,10 +310,11 @@ card.innerHTML = `
     letter-spacing: 0.5px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 ">
-    <div style="margin-bottom: 4px;">Designed by Ethan Cai</div>
+    <div style="margin-bottom: 4px;">Designed by Ethan Cai · 三级联动版</div>
     <div style="opacity: 0.8;">ethan.cai02@shopee.com</div>
 </footer>
 
+<!-- 隐藏彩蛋（点击空白区域显示） -->
 <div id="author-tag" onclick="this.style.display='none'" style="
     display:none; 
     position:fixed; 
@@ -244,10 +332,8 @@ card.innerHTML = `
 ">
     🚀 祝老板早日爆单，财源滚滚！
 </div>
-
 <div onclick="document.getElementById('author-tag').style.display='block'" 
      style="width:120px; height:30px; margin:-40px auto 0; cursor:pointer; background:transparent; z-index:9998;">
 </div>
 </body>
 </html>
-</div>
