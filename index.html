@@ -44,6 +44,7 @@
         <input type="text" id="searchInput" placeholder="搜索标题/ID..." oninput="debouncedFilter()">
         <select id="l1Filter" onchange="updateL2(); applyFilters()"><option value="">一级类目(全部)</option></select>
         <select id="l2Filter" onchange="applyFilters()"><option value="">二级类目(全部)</option></select>
+         <select id="l3Filter" onchange="applyFilters()"><option value="">三级类目(全部)</option></select>
         <select id="pFilter" onchange="applyFilters()"><option value="">P0/P1(全部)</option><option value="P0">P0</option><option value="P1">P1</option></select>
         <select id="tagFilter" onchange="applyFilters()"><option value="">特殊标签(全部)</option></select>
         <input type="number" id="minPrice" placeholder="最低价" oninput="debouncedFilter()">
@@ -115,14 +116,15 @@ const mapData = (arr) => {
         link: arr[4],
         l1: arr[5],
         l2: arr[6],
-        inviteId: cleanId(arr[7]),
+        l3: arr[7],
+        inviteId: cleanId(arr[8]),
         // 关键点：使用 cleanId 处理，强制转为字符串且去除干扰符
-        modelId: cleanId(arr[8]), 
-        link1688: arr[9],
-        judge: arr[10],
-        date: arr[11],
-        specialTag: arr[14] || "",
-        modelCount: arr[15] || "1"
+        modelId: cleanId(arr[9]), 
+        link1688: arr[10],
+        judge: arr[11],
+        date: arr[12],
+        specialTag: arr[13] || "",
+        modelCount: arr[14] || "1"
     };
 };
 
@@ -180,14 +182,14 @@ card.innerHTML = `
 
     function applyFilters() {
         const q = document.getElementById('searchInput').value.toLowerCase();
-        const l1 = document.getElementById('l1Filter').value, l2 = document.getElementById('l2Filter').value;
+        const l1 = document.getElementById('l1Filter').value, l2 = document.getElementById('l2Filter').value, l3 = document.getElementById('l3Filter').value;
         const p = document.getElementById('pFilter').value, tag = document.getElementById('tagFilter').value;
         const min = parseFloat(document.getElementById('minPrice').value) || 0, max = parseFloat(document.getElementById('maxPrice').value) || Infinity;
         
         filteredData = products.filter(arr => {
             const i = mapData(arr);
             return (i.title.toLowerCase().includes(q) || i.inviteId.toLowerCase().includes(q)) &&
-                   (!l1 || i.l1 === l1) && (!l2 || i.l2 === l2) && (!p || i.judge === p) && 
+                   (!l1 || i.l1 === l1) && (!l2 || i.l2 === l2)&& (!l3 || i.l3 === l3)&& (!p || i.judge === p) && 
                    (!tag || i.specialTag === tag) && (i.price >= min && i.price <= max);
         });
         
@@ -205,7 +207,9 @@ card.innerHTML = `
     }
 
     function updateL2() { const l1 = document.getElementById('l1Filter').value; const s = document.getElementById('l2Filter'); s.innerHTML = '<option value="">二级类目(全部)</option>'; [...new Set(products.filter(p => !l1 || p[5] === l1).map(p => p[6]))].forEach(v => { if(v) s.innerHTML += `<option value="${v}">${v}</option>`; }); }
-    let timer; const debouncedFilter = () => { clearTimeout(timer); timer = setTimeout(applyFilters, 300); };
+    let timer; const debouncedFilter = () => { clearTimeout(timer); timer = setTimeout(applyFilters, 300); const l3Select = document.getElementById('l3Filter');
+    l3Select.innerHTML = '<option value="">三级类目(全部)</option>';
+};
     window.onload = loadData;
     // Data-Powered Template | Author: Ethan Cai (ethan.cai02@shopee.com)
 // 内部使用，严禁对外转载
