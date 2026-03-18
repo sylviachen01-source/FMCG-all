@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>热销原品清单 · 三图展示 + 四级联动</title>
+    <title>热销原品 · 三图展示+四级联动（列索引已校准）</title>
     <style>
         body { font-family: 'PingFang SC', sans-serif; background: #f4f4f7; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -58,7 +58,7 @@
 <body>
 <div class="container">
     <header>
-        <h1>热销原品 · 三图展示+四级联动</h1>
+        <h1>热销原品 · 三图展示+四级联动（列索引校准版）</h1>
         <div class="desc-box">
 🔥优先选P0：P0 级产品价格更优<br>
 💰高效提报：单击红框 ID 快速复制，搜索该 ID 报满所有型号流量翻倍！<br>
@@ -122,7 +122,7 @@
                 r.push(cur.trim());
                 r.push(index);
                 return r;
-            }).filter(a => a.length >= 15); // 至少15列确保主要字段存在
+            }).filter(a => a.length >= 10); // 至少10列即可（实际有20列，放宽条件）
             initFilters();
             updateL2();
         } catch (e) {
@@ -131,7 +131,7 @@
     }
 
     /**
-     * 列索引说明（基于最新CSV标题）：
+     * 列索引说明（严格对应CSV表头，0-based）：
      * 0: title
      * 1: variant
      * 2: price
@@ -144,11 +144,11 @@
      * 9: l3 (三级类目)
      * 10: l4 (四级类目)
      * 11: inviteId
-     * 12: modelId (原型号ID，底部不再使用)
+     * 12: modelId (保留，但底部改为显示itemid)
      * 13: final_1688_link (核价链接)
      * 14: price judge (P0/P1)
      * 15: update date
-     * 16: itemid (需要在底部展示)
+     * 16: itemid (底部展示)
      * 17: 最大价格 (未使用)
      * 18: tag (特殊标签)
      * 19: 共有model数 (款式数)
@@ -167,11 +167,11 @@
             l3: arr[9],
             l4: arr[10],
             inviteId: cleanId(arr[11]),
-            modelId: cleanId(arr[12]),            // 保留原modelId，但底部改为展示itemid
+            modelId: cleanId(arr[12]),            // 保留但不使用
             link1688: arr[13],
             judge: arr[14],
             date: arr[15],
-            itemid: cleanId(arr[16]),              // 新增itemid用于底部展示
+            itemid: cleanId(arr[16]),              // 用于底部展示
             specialTag: arr[18] || '',            // 特殊标签
             modelCount: arr[19] || '1'             // 款式数
         };
@@ -231,7 +231,7 @@
                     </div>
                     <div class="footer-row">
                         <span>${item.date}</span>
-                        <span style="font-weight:bold; color:#555;">${item.itemid}</span> <!-- 这里改为显示itemid -->
+                        <span style="font-weight:bold; color:#555;">${item.itemid}</span> <!-- 显示itemid -->
                         <a href="${item.link}" target="_blank" class="btn-link">原品 >>></a>
                     </div>
                 </div>`;
@@ -369,7 +369,7 @@
 </script>
 
 <footer style="text-align:center; color:#86868b; font-size:11px; margin-top:80px; padding:40px;">
-    Designed by Ethan Cai · 三图+四级联动版 · ethan.cai02@shopee.com
+    Designed by Ethan Cai · 三图+四级联动（索引校准版） · ethan.cai02@shopee.com
 </footer>
 <!-- 彩蛋元素略，可保留 -->
 </body>
